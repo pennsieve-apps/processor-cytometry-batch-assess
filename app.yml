@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=https://schemas.pennsieve.io/app-manifest/v1.json
+schemaVersion: "1.0"
+application:
+  name: Cytometry Batch Assessment
+  description: >-
+    Measures batch effects in a flow or mass cytometry cohort: for every batch and marker, the
+    Earth Mover's Distance (Orlova et al. 2016) between that batch's expression distribution and
+    the other batches' (within each condition, so biology isn't counted as batch effect) and,
+    when reference samples are run in every batch, between each batch's reference sample and the
+    pooled references. Flags batch x marker distances above a robust threshold (median + K x MAD
+    over batches), markers missing from some batches, and batches with many flagged markers,
+    with a per-batch score, heatmaps and density plots. Run it before and after a correction
+    (CytoNorm, cyCombine) with different LABELs to see whether the correction helped; all
+    outputs go under a folder named after LABEL.
+  type: processor
+  tags:
+    - cytometry
+    - flow-cytometry
+    - fcs
+    - batch-effects
+    - quality-control
+runtime:
+  cpu: 1024
+  memory: 2048
+  # standard (ECS) by default; a light step that a workflow can also run as a Lambda function
+  # (the image serves both, see processor/entry.py). Measured: ~350 MB peak RSS, 5-6 s for the
+  # 24-file, 10.4 M-event demo cohort.
+  computeTypes:
+    - standard
+    - lambda
+  timeoutSeconds: 900
+parameters:
+  - name: LABEL
+    type: string
+    description: >-
+      Name of this assessment (lowercase letters, digits, '-'), e.g. raw, cytonorm, cycombine.
+      Every output is written under OUTPUT_DIR/<LABEL>/ so several runs can feed one report.
+    defaultValue: "raw"
+  - name: REFERENCE_COLUMN
+    type: string
+    description: >-
+      samples.csv column that marks reference (bridge / anchor) samples, e.g. control. Empty: no
+      reference comparison. Set together with REFERENCE_VALUES.
+    defaultValue: ""
+  - name: REFERENCE_VALUES
+    type: string
+    description: >-
+      Comma-separated values of REFERENCE_COLUMN that mark reference samples, e.g. tcu1. Each value
+      is a separate reference (the same sample run in every batch).
+    defaultValue: ""
+  - name: CONDITION_COLUMN
+    type: string
+    description: samples.csv column whose groups are compared separately in the batch-vs-batch comparison.
+    defaultValue: "condition"
+  - name: CELLS_PER_SAMPLE
+    type: integer
+    description: Cells drawn (seeded, without replacement) from each sample; 0 uses every cell.
+    defaultValue: 50000
+  - name: MAD_K
+    type: number
+    description: A batch x marker distance is flagged above median + MAD_K x MAD (scaled by 1.4826) across batches.
+    defaultValue: 3
+  - name: MIN_EMD
+    type: number
+    description: >-
+      Distances at or below this are never flagged (transformed units; 0.1 on an arcsinh scale is
+      roughly a 10% intensity shift of positive cells).
+    defaultValue: 0.1
+  - name: BATCH_FLAG_FRACTION
+    type: number
+    description: A batch is flagged when at least this fraction of the markers is flagged for it.
+    defaultValue: 0.2
+  - name: MARKERS
+    type: string
+    description: Comma-separated markers (or channels) to assess; empty = every panel.csv marker.
+    defaultValue: ""
+  - name: MAX_PLOTS
+    type: integer
+    description: Density plots for at most this many markers (most-flagged first).
+    defaultValue: 6
+  - name: SEED
+    type: integer
+    description: Seed for the per-sample subsampling.
+    defaultValue: 42
+# Each input in its own folder (placement: subfolder) when linked; without links the files are
+# found by name anywhere under INPUT_DIR.
+inputs:
+  - name: fcs
+    description: >-
+      <sample_id>.fcs, one per sample, marker channels arcsinh-transformed (fcs-prep, then
+      optionally QC'd or normalized by peacoqc, cytonorm or cycombine).
+    mediaTypes:
+      - application/vnd.isac.fcs
+    placement: subfolder
+    required: true
+  - name: metadata
+    description: >-
+      fcs-prep's samples.csv (sample_id, batch, condition, any extra columns such as control),
+      panel.csv (channel, marker, type) and prep.json (channels dropped per sample).
+    mediaTypes:
+      - text/csv
+      - application/json
+    placement: subfolder
+    required: true
+# One output: the whole of OUTPUT_DIR; the app writes into OUTPUT_DIR/<LABEL>/.
+outputs:
+  - name: assessment
+    description: >-
+      <LABEL>/emd_reference.csv (batch, marker, emd, reference, threshold, flagged, n_samples,
+      n_cells), <LABEL>/emd_batches.csv (batch, condition, marker, emd, ...), <LABEL>/flags.csv,
+      <LABEL>/summary.json (label, counts, median EMD, per-batch score, flags),
+      <LABEL>/heatmap_reference.png, <LABEL>/heatmap_batches.png, <LABEL>/density_<marker>.png,
+      <LABEL>/provenance.json.
+    mediaTypes:
+      - text/csv
+      - application/json
+      - image/png
