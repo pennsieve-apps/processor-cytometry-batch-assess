@@ -1,5 +1,6 @@
 cff-version: "1.2.0"
-message: If you use this app, please cite it and the works it builds on, listed under references.
+message: >-
+  If you use this app, please cite the work it implements (preferred-citation), this release, and Pennsieve (RRID:SCR_021677); the other works it builds on are listed under references.
 type: software
 title: Cytometry Batch Assessment
 abstract: Measures batch effects in a flow or mass cytometry cohort with the Earth Mover's Distance per
@@ -15,6 +16,30 @@ keywords:
 - fcs
 - batch-effects
 - quality-control
+# The work this app implements; the release report's "How to cite" puts it first.
+preferred-citation:
+  type: article
+  title: 'CytoBatchFlagR: A Comprehensive Framework to Objectively Assess High-Parameter Cytometry Data for Batch Effects'
+  authors:
+  - family-names: Eswar
+    given-names: Shruti
+  - family-names: Koenig
+    given-names: Zachary T.
+  - family-names: Tursi
+    given-names: Amanda R.
+  - family-names: Cobeña-Reyes
+    given-names: José
+  - family-names: Tilburgs
+    given-names: Tamara
+  - family-names: Andorf
+    given-names: Sandra
+  year: 2026
+  journal: Cytometry Part A
+  volume: 109
+  issue: '4'
+  start: '241'
+  end: '256'
+  doi: 10.1002/cyto.a.70024
 references:
 - type: article
   title: 'Earth Mover’s Distance (EMD): A True Metric for Comparing Biomarker Expression Levels in Cell
